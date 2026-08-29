@@ -19,7 +19,7 @@
 
 #define TRIG_PIN          12
 #define ECHO_PIN          13
-#define RAIN_PIN          34    // Analog input pin
+#define RAIN_PIN          34    // Analog input pin for rain level (ADC1_CH6)
 
 #define LORA_SS           5
 #define LORA_RST          14
@@ -27,6 +27,21 @@
 
 // --- Node Identifier ---
 const byte NODE_ID = 0x01;      // Flood Node ID
+
+// --- Threat Levels ---
+enum ThreatLevel {
+  NORMAL = 0,
+  WARNING = 1,
+  HIGH_RISK = 2,
+  CRITICAL = 3
+};
+
+const char* threatLevelNames[] = {
+  "NORMAL",
+  "WARNING",
+  "HIGH RISK",
+  "CRITICAL"
+};
 
 // --- Global Variables ---
 DHT dht(DHTPIN, DHTTYPE);
@@ -41,7 +56,8 @@ struct FloodDataPacket {
   float temperature;
   float humidity;
   float waterDistanceCm;
-  int rainValue;
+  int rainValue;       // Analog rain reading (0-4095)
+  byte threatLevel;    // 0 = NORMAL, 1 = WARNING, 2 = HIGH, 3 = CRITICAL
 };
 
 void setup() {
@@ -61,13 +77,13 @@ void setup() {
   // Initialize LoRa transceiver
   LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
   
-  // Set frequency to 433MHz (common for SX1278 in Asia/Europe) or 868/915 depending on region
+  // Set frequency to 433MHz
   if (!LoRa.begin(433E6)) {
     Serial.println("LoRa initialization failed! Check wiring.");
     while (1);
   }
   
-  LoRa.setTxPower(17); // Set TX power (up to 20dBm)
+  LoRa.setTxPower(17); // Set TX power
   Serial.println("LoRa Transceiver Initialized successfully @ 433 MHz");
   Serial.println("Flood Node Ready to Transmit.");
 }
@@ -88,10 +104,43 @@ void loop() {
     // 2. Read Ultrasonic Water Level (Distance)
     float distanceCm = getUltrasonicDistance();
 
-    // 3. Read Analog Rain Sensor
+    // 3. Read Rain Sensor
     int rainVal = analogRead(RAIN_PIN);
 
-    // 4. Pack Data Into Struct
+    // 4. Evaluate Threat Level Logic
+    ThreatLevel level = NORMAL;
+
+    if (distanceCm > 0.0) {
+      // CRITICAL: Water distance <= 20cm OR (water distance <= 35cm AND rain value < 800)
+      if (distanceCm <= 20.0 || (distanceCm <= 35.0 && rainVal < 800)) {
+        level = CRITICAL;
+      }
+      // HIGH: Water distance <= 50cm OR (water distance <= 75cm AND rain value < 1500)
+      else if (distanceCm <= 50.0 || (distanceCm <= 75.0 && rainVal < 1500)) {
+        level = HIGH_RISK;
+      }
+      // WARNING: Water distance <= 95cm OR rain value < 2000
+      else if (distanceCm <= 95.0 || rainVal < 2000) {
+        level = WARNING;
+      }
+      // NORMAL: Water distance > 95cm AND rain value >= 2000
+      else {
+        level = NORMAL;
+      }
+    } else {
+      // Out of range/failed ultrasonic sensor: base risk level solely on Rain Sensor
+      if (rainVal < 800) {
+        level = CRITICAL;
+      } else if (rainVal < 1500) {
+        level = HIGH_RISK;
+      } else if (rainVal < 2000) {
+        level = WARNING;
+      } else {
+        level = NORMAL;
+      }
+    }
+
+    // 5. Pack Data Into Struct
     FloodDataPacket packet;
     packet.nodeId = NODE_ID;
     packet.packetId = packetCounter;
@@ -99,12 +148,13 @@ void loop() {
     packet.humidity = hum;
     packet.waterDistanceCm = distanceCm;
     packet.rainValue = rainVal;
+    packet.threatLevel = (byte)level;
 
     // Print values to local Serial Monitor
-    Serial.printf("[TX #%d] Temp: %.1fC | Hum: %.1f%% | Water Dist: %.1f cm | Rain Val: %d\n", 
-                  packetCounter, temp, hum, distanceCm, rainVal);
+    Serial.printf("[TX #%d] Temp: %.1fC | Hum: %.1f%% | Water Dist: %.1f cm | Rain Val: %d | Threat: %s\n", 
+                  packetCounter, temp, hum, distanceCm, rainVal, threatLevelNames[level]);
 
-    // 5. Transmit packet via LoRa
+    // 6. Transmit packet via LoRa
     LoRa.beginPacket();
     LoRa.write((uint8_t*)&packet, sizeof(packet));
     LoRa.endPacket();
@@ -128,7 +178,7 @@ float getUltrasonicDistance() {
     return -1.0; // Out of range or failure
   }
   
-  // Speed of sound is 340 m/s or 0.034 cm/us. Distance = (time * speed) / 2
+  // Speed of sound is 340 m/s or 0.0343 cm/us. Distance = (time * speed) / 2
   float distance = (duration * 0.0343) / 2.0;
   return distance;
 }
