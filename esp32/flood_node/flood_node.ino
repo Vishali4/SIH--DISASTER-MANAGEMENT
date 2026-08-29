@@ -1,0 +1,134 @@
+/**
+ * ESP32 Flood Monitoring Sensor Node (Node 1)
+ * SIH - Environmental Intelligence Early-Warning Network
+ * 
+ * Hardware Sensors:
+ * - HC-SR04 Waterproof Ultrasonic Sensor (Water Level)
+ * - Analog Rain Sensor (Precipitation)
+ * - DHT11 (Temperature & Humidity)
+ * - SX1278 SPI LoRa Module (LoRa Transmitter)
+ */
+
+#include <SPI.h>
+#include <LoRa.h>
+#include <DHT.h>
+
+// --- Pin Definitions ---
+#define DHTPIN            4
+#define DHTTYPE           DHT11
+
+#define TRIG_PIN          12
+#define ECHO_PIN          13
+#define RAIN_PIN          34    // Analog input pin
+
+#define LORA_SS           5
+#define LORA_RST          14
+#define LORA_DIO0         2
+
+// --- Node Identifier ---
+const byte NODE_ID = 0x01;      // Flood Node ID
+
+// --- Global Variables ---
+DHT dht(DHTPIN, DHTTYPE);
+unsigned long lastTxTime = 0;
+const unsigned long txInterval = 5000; // Transmit every 5 seconds
+int packetCounter = 0;
+
+// Structure to pack sensor data efficiently for LoRa transmission
+struct FloodDataPacket {
+  byte nodeId;
+  unsigned long packetId;
+  float temperature;
+  float humidity;
+  float waterDistanceCm;
+  int rainValue;
+};
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial);
+
+  Serial.println("==========================================");
+  Serial.println("SIH Flood Monitoring Node (ESP32 #1) Starting...");
+  Serial.println("==========================================");
+
+  // Initialize sensors
+  dht.begin();
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  pinMode(RAIN_PIN, INPUT);
+
+  // Initialize LoRa transceiver
+  LoRa.setPins(LORA_SS, LORA_RST, LORA_DIO0);
+  
+  // Set frequency to 433MHz (common for SX1278 in Asia/Europe) or 868/915 depending on region
+  if (!LoRa.begin(433E6)) {
+    Serial.println("LoRa initialization failed! Check wiring.");
+    while (1);
+  }
+  
+  LoRa.setTxPower(17); // Set TX power (up to 20dBm)
+  Serial.println("LoRa Transceiver Initialized successfully @ 433 MHz");
+  Serial.println("Flood Node Ready to Transmit.");
+}
+
+void loop() {
+  if (millis() - lastTxTime >= txInterval) {
+    lastTxTime = millis();
+    packetCounter++;
+
+    // 1. Read DHT11 Temperature & Humidity
+    float temp = dht.readTemperature();
+    float hum = dht.readHumidity();
+    
+    // Check if readings failed
+    if (isnan(temp)) temp = 0.0;
+    if (isnan(hum)) hum = 0.0;
+
+    // 2. Read Ultrasonic Water Level (Distance)
+    float distanceCm = getUltrasonicDistance();
+
+    // 3. Read Analog Rain Sensor
+    int rainVal = analogRead(RAIN_PIN);
+
+    // 4. Pack Data Into Struct
+    FloodDataPacket packet;
+    packet.nodeId = NODE_ID;
+    packet.packetId = packetCounter;
+    packet.temperature = temp;
+    packet.humidity = hum;
+    packet.waterDistanceCm = distanceCm;
+    packet.rainValue = rainVal;
+
+    // Print values to local Serial Monitor
+    Serial.printf("[TX #%d] Temp: %.1fC | Hum: %.1f%% | Water Dist: %.1f cm | Rain Val: %d\n", 
+                  packetCounter, temp, hum, distanceCm, rainVal);
+
+    // 5. Transmit packet via LoRa
+    LoRa.beginPacket();
+    LoRa.write((uint8_t*)&packet, sizeof(packet));
+    LoRa.endPacket();
+
+    Serial.println("Packet sent successfully!");
+  }
+}
+
+/**
+ * Measures water level distance by trigger/echo timing of ultrasonic waves.
+ */
+float getUltrasonicDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // 30ms timeout
+  if (duration == 0) {
+    return -1.0; // Out of range or failure
+  }
+  
+  // Speed of sound is 340 m/s or 0.034 cm/us. Distance = (time * speed) / 2
+  float distance = (duration * 0.0343) / 2.0;
+  return distance;
+}

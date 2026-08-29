@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environmental Intelligence Network Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Chart.js for real-time graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(20, 30, 55, 0.6);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --critical: #8b5cf6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-color);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 2rem 4%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(11, 15, 25, 0.7);
+        }
+
+        .logo-section h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-section p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .system-badge {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .system-badge::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--success);
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 4%;
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(16px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .node-summary-card {
+            grid-column: span 6;
+        }
+
+        @media (max-width: 1024px) {
+            .node-summary-card {
+                grid-column: span 12;
+            }
+        }
+
+        .chart-card {
+            grid-column: span 8;
+        }
+
+        .logs-card {
+            grid-column: span 4;
+        }
+
+        @media (max-width: 1024px) {
+            .chart-card {
+                grid-column: span 12;
+            }
+            .logs-card {
+                grid-column: span 12;
+            }
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .card-header .badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .normal-badge { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); }
+        .warning-badge { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.2); }
+        .high-badge { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+        .critical-badge { background: rgba(139, 92, 246, 0.1); color: var(--critical); border: 1px solid rgba(139, 92, 246, 0.2); }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .sensor-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            padding: 1.2rem;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .sensor-item span.label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sensor-item span.value {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .sensor-item span.unit {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .log-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 4px solid var(--primary);
+            font-size: 0.85rem;
+        }
+
+        .log-item.node-1 { border-left-color: #3b82f6; }
+        .log-item.node-2 { border-left-color: #ec4899; }
+
+        .log-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .log-meta .time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .log-risk {
+            font-weight: 600;
+        }
+
+        .log-risk.NORMAL { color: var(--success); }
+        .log-risk.WARNING { color: var(--warning); }
+        .log-risk.HIGH { color: var(--danger); }
+        .log-risk.CRITICAL { color: var(--critical); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-section">
+            <h1>ENVIRONMENTAL INTELLIGENCE NETWORK</h1>
+            <p>Edge-AI Offline Disaster Management Console</p>
+        </div>
+        <div class="system-badge">System Offline Mode Active</div>
+    </header>
+
+    <div class="container">
+        <!-- Node 1: Flood -->
+        <div class="card node-summary-card">
+            <div class="card-header">
+                <h2>Node 1: Flood Monitoring</h2>
+                <span id="node1-risk" class="badge normal-badge">NORMAL</span>
+            </div>
+            <div class="sensor-grid">
+                <div class="sensor-item">
+                    <span class="label">Water Level</span>
+                    <div>
+                        <span id="node1-water" class="value">--</span>
+                        <span class="unit">cm (Distance)</span>
+                    </div>
+                </div>
+                <div class="sensor-item">
+                    <span class="label">Rain Sensor</span>
+                    <div>
+                        <span id="node1-rain" class="value">--</span>
+                        <span class="unit">analog</span>
+                    </div>
+                </div>
+                <div class="sensor-item">
+                    <span class="label">Temperature</span>
+                    <div>
+                        <span id="node1-temp" class="value">--</span>
+                        <span class="unit">°C</span>
+                    </div>
+                </div>
+                <div class="sensor-item">
+                    <span class="label">Humidity</span>
+                    <div>
+                        <span id="node1-humidity" class="value">--</span>
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Node 2: Forest Fire -->
+        <div class="card node-summary-card">
+            <div class="card-header">
+                <h2>Node 2: Forest-Fire Monitoring</h2>
+                <span id="node2-risk" class="badge normal-badge">NORMAL</span>
+            </div>
+            <div class="sensor-grid">
+                <div class="sensor-item">
+                    <span class="label">Smoke (MQ-2)</span>
+                    <div>
+                        <span id="node2-smoke" class="value">--</span>
+                        <span class="unit">analog</span>
+                    </div>
+                </div>
+                <div class="sensor-item">
+                    <span class="label">Flame Sensor</span>
+                    <div>
+                        <span id="node2-flame" class="value">--</span>
+                    </div>
+                </div>
+                <div class="sensor-item">
+                    <span class="label">Temperature</span>
+                    <div>
+                        <span id="node2-temp" class="value">--</span>
+                        <span class="unit">°C</span>
+                    </div>
+                </div>
+                <div class="sensor-item">
+                    <span class="label">Humidity</span>
+                    <div>
+                        <span id="node2-humidity" class="value">--</span>
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="card chart-card">
+            <div class="card-header">
+                <h2>Real-Time Risk Levels & Sensor Metrics</h2>
+            </div>
+            <div style="position: relative; height: 350px; width: 100%;">
+                <canvas id="disasterChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Local Logs -->
+        <div class="card logs-card">
+            <div class="card-header">
+                <h2>Incident & Alert Logs</h2>
+            </div>
+            <div class="log-list" id="log-container">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Init chart
+        const ctx = document.getElementById('disasterChart').getContext('2d');
+        const disasterChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Water Distance (cm)',
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        data: [],
+                        borderWidth: 2,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Smoke Level',
+                        borderColor: '#ec4899',
+                        backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                        data: [],
+                        borderWidth: 2,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        grid: { display: false }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'Distance (cm)' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: { display: true, text: 'Smoke Level' },
+                        grid: { drawOnChartArea: false }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: '#f1f5f9' }
+                    }
+                }
+            }
+        });
+
+        function updateBadge(elementId, risk) {
+            const el = document.getElementById(elementId);
+            el.innerText = risk;
+            el.className = 'badge ' + risk.toLowerCase() + '-badge';
+        }
+
+        function fetchStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update Node 1
+                    if (data.node1) {
+                        document.getElementById('node1-water').innerText = data.node1.water_distance.toFixed(1);
+                        document.getElementById('node1-rain').innerText = data.node1.rain_value;
+                        document.getElementById('node1-temp').innerText = data.node1.temperature.toFixed(1);
+                        document.getElementById('node1-humidity').innerText = data.node1.humidity.toFixed(1);
+                        updateBadge('node1-risk', data.node1.risk_level);
+                    }
+                    
+                    // Update Node 2
+                    if (data.node2) {
+                        document.getElementById('node2-smoke').innerText = data.node2.smoke_value;
+                        document.getElementById('node2-flame').innerText = data.node2.flame_detected === 1 ? 'DETECTED!' : 'None';
+                        document.getElementById('node2-temp').innerText = data.node2.temperature.toFixed(1);
+                        document.getElementById('node2-humidity').innerText = data.node2.humidity.toFixed(1);
+                        updateBadge('node2-risk', data.node2.risk_level);
+                    }
+
+                    // Update Logs
+                    const logContainer = document.getElementById('log-container');
+                    logContainer.innerHTML = '';
+                    data.logs.forEach(log => {
+                        const date = new Date(log.timestamp * 1000).toLocaleTimeString();
+                        const logItem = document.createElement('div');
+                        logItem.className = `log-item node-${log.node_id}`;
+                        
+                        let detailText = '';
+                        if (log.node_id === 1) {
+                            detailText = `Water Dist: ${log.water_distance.toFixed(1)}cm | Rain: ${log.rain_value}`;
+                        } else {
+                            detailText = `Smoke: ${log.smoke_value} | Flame: ${log.flame_detected === 1 ? 'YES' : 'NO'}`;
+                        }
+
+                        logItem.innerHTML = `
+                            <div class="log-meta">
+                                <strong>Node ${log.node_id} (Pkt #${log.packet_id})</strong>
+                                <span class="time">${date} | ${detailText}</span>
+                            </div>
+                            <span class="log-risk ${log.risk_level}">${log.risk_level} (${(log.confidence * 100).toFixed(0)}%)</span>
+                        `;
+                        logContainer.appendChild(logItem);
+                    });
+                });
+        }
+
+        function fetchHistory() {
+            fetch('/api/history')
+                .then(response => response.json())
+                .then(data => {
+                    const times = data.map(log => new Date(log.timestamp * 1000).toLocaleTimeString());
+                    const waterDistances = data.map(log => log.node_id === 1 ? log.water_distance : null);
+                    const smokeLevels = data.map(log => log.node_id === 2 ? log.smoke_value : null);
+
+                    disasterChart.data.labels = times;
+                    disasterChart.data.datasets[0].data = waterDistances;
+                    disasterChart.data.datasets[1].data = smokeLevels;
+                    disasterChart.update();
+                });
+        }
+
+        // Poll every 2 seconds
+        setInterval(fetchStatus, 2000);
+        setInterval(fetchHistory, 5000);
+
+        fetchStatus();
+        fetchHistory();
+    </script>
+</body>
+</html>
