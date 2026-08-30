@@ -92,35 +92,63 @@ def generate_fire_dataset(n_samples=2000):
             
     data['risk_level'] = risk_levels
     return data
+import sqlite3
+
+def load_data_from_db():
+    db_path = os.path.join(os.path.dirname(__file__), "disaster_data.db")
+    if not os.path.exists(db_path):
+        return None, None
+    try:
+        conn = sqlite3.connect(db_path)
+        df = pd.read_sql_query("SELECT * FROM sensor_logs", conn)
+        conn.close()
+        
+        # Split into flood and fire
+        flood_data = df[df['node_id'] == 1].dropna(subset=['water_distance', 'rain_value', 'risk_level'])
+        fire_data = df[df['node_id'] == 2].dropna(subset=['smoke_value', 'flame_detected', 'risk_level'])
+        
+        return flood_data, fire_data
+    except Exception as e:
+        print(f"Error loading from DB: {e}")
+        return None, None
 
 def train_and_save_models():
-    print("Generating training data...")
-    flood_df = generate_flood_dataset()
-    fire_df = generate_fire_dataset()
+    print("Attempting to load real-world dataset from local SQLite database...")
+    flood_db, fire_db = load_data_from_db()
     
     # 1. Flood Node Model
-    print("Training Flood Risk Classification Model...")
-    X_flood = flood_df[['temperature', 'humidity', 'water_distance', 'rain_value']]
-    y_flood = flood_df['risk_level']
-    
+    if flood_db is not None and len(flood_db) >= 100:
+        print(f"Training Flood model using {len(flood_db)} real logged database records...")
+        X_flood = flood_db[['temperature', 'humidity', 'water_distance', 'rain_value']]
+        y_flood = flood_db['risk_level']
+    else:
+        print("Insufficient real-world database records (< 100). Generating synthetic training dataset for Flood...")
+        flood_df = generate_flood_dataset()
+        X_flood = flood_df[['temperature', 'humidity', 'water_distance', 'rain_value']]
+        y_flood = flood_df['risk_level']
+        
     flood_model = DecisionTreeClassifier(max_depth=5, random_state=42)
     flood_model.fit(X_flood, y_flood)
-    
     flood_path = os.path.join(MODEL_DIR, "flood_model.joblib")
     joblib.dump(flood_model, flood_path)
-    print(f"Flood model saved to {flood_path}")
+    print(f"Flood model successfully saved to {flood_path}")
     
     # 2. Fire Node Model
-    print("Training Forest-Fire Risk Classification Model...")
-    X_fire = fire_df[['temperature', 'humidity', 'smoke_value', 'flame_detected']]
-    y_fire = fire_df['risk_level']
-    
+    if fire_db is not None and len(fire_db) >= 100:
+        print(f"Training Fire model using {len(fire_db)} real logged database records...")
+        X_fire = fire_db[['temperature', 'humidity', 'smoke_value', 'flame_detected']]
+        y_fire = fire_db['risk_level']
+    else:
+        print("Insufficient real-world database records (< 100). Generating synthetic training dataset for Fire...")
+        fire_df = generate_fire_dataset()
+        X_fire = fire_df[['temperature', 'humidity', 'smoke_value', 'flame_detected']]
+        y_fire = fire_df['risk_level']
+        
     fire_model = DecisionTreeClassifier(max_depth=5, random_state=42)
     fire_model.fit(X_fire, y_fire)
-    
     fire_path = os.path.join(MODEL_DIR, "fire_model.joblib")
     joblib.dump(fire_model, fire_path)
-    print(f"Fire model saved to {fire_path}")
-    
+    print(f"Fire model successfully saved to {fire_path}")
+
 if __name__ == "__main__":
     train_and_save_models()
