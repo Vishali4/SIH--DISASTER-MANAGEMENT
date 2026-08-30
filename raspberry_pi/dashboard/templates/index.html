@@ -11,16 +11,16 @@
     
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --card-bg: rgba(20, 30, 55, 0.6);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --primary: #3b82f6;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --critical: #8b5cf6;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: rgba(16, 185, 129, 0.15);
+            --text-color: #0f172a;
+            --text-muted: #64748b;
+            --primary: #10b981;
+            --success: #059669;
+            --warning: #d97706;
+            --danger: #dc2626;
+            --critical: #7c3aed;
         }
 
         * {
@@ -33,8 +33,8 @@
         body {
             background-color: var(--bg-color);
             background-image: 
-                radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
-                radial-gradient(at 90% 80%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+                radial-gradient(at 10% 20%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(5, 150, 105, 0.05) 0px, transparent 50%);
             background-attachment: fixed;
             color: var(--text-color);
             min-height: 100vh;
@@ -51,13 +51,13 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            background: rgba(11, 15, 25, 0.7);
+            background: rgba(255, 255, 255, 0.85);
         }
 
         .logo-section h1 {
             font-size: 1.5rem;
             font-weight: 800;
-            background: linear-gradient(135deg, #60a5fa, #c084fc);
+            background: linear-gradient(135deg, #059669, #10b981);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.5px;
@@ -112,13 +112,14 @@
             border: 1px solid var(--border-color);
             border-radius: 16px;
             padding: 1.5rem;
-            backdrop-filter: blur(16px);
-            transition: transform 0.3s ease, border-color 0.3s ease;
+            box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.06);
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .card:hover {
             transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(16, 185, 129, 0.3);
+            box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.1);
         }
 
         .node-summary-card {
@@ -179,13 +180,18 @@
         }
 
         .sensor-item {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(16, 185, 129, 0.02);
             border: 1px solid var(--border-color);
             padding: 1.2rem;
             border-radius: 12px;
             display: flex;
             flex-direction: column;
             gap: 6px;
+            transition: background 0.2s ease;
+        }
+
+        .sensor-item:hover {
+            background: rgba(16, 185, 129, 0.04);
         }
 
         .sensor-item span.label {
@@ -222,7 +228,8 @@
             justify-content: space-between;
             padding: 0.8rem;
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.02);
+            background: rgba(16, 185, 129, 0.02);
+            border: 1px solid var(--border-color);
             border-left: 4px solid var(--primary);
             font-size: 0.85rem;
         }
@@ -253,8 +260,8 @@
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.3); }
     </style>
 </head>
 <body>
@@ -395,26 +402,29 @@
                 maintainAspectRatio: false,
                 scales: {
                     x: {
-                        grid: { display: false }
+                        grid: { display: false },
+                        ticks: { color: '#64748b' }
                     },
                     y: {
                         type: 'linear',
                         display: true,
                         position: 'left',
-                        title: { display: true, text: 'Distance (cm)' },
-                        grid: { color: 'rgba(255,255,255,0.05)' }
+                        title: { display: true, text: 'Distance (cm)', color: '#0f172a' },
+                        grid: { color: 'rgba(16, 185, 129, 0.08)' },
+                        ticks: { color: '#64748b' }
                     },
                     y1: {
                         type: 'linear',
                         display: true,
                         position: 'right',
-                        title: { display: true, text: 'Smoke Level' },
-                        grid: { drawOnChartArea: false }
+                        title: { display: true, text: 'Smoke Level', color: '#0f172a' },
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: '#64748b' }
                     }
                 },
                 plugins: {
                     legend: {
-                        labels: { color: '#f1f5f9' }
+                        labels: { color: '#0f172a' }
                     }
                 }
             }
