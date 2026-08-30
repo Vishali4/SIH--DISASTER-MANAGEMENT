@@ -21,37 +21,71 @@ class LCDMock:
         print(f"[LCD Mock] Line {line}: {string}")
     def lcd_clear(self): pass
 
-# Simple I2C LCD driver mockup if libraries are missing
+# Actual working PCF8574 I2C 1602 LCD Driver
 class I2CLCDDriver:
     def __init__(self, address=0x27):
         self.address = address
+        self.mock = False
         if PI_HARDWARE_AVAILABLE:
             try:
-                # We try loading simple I2C driver commands
-                # For actual production code on RPi, standard driver logic goes here:
                 self.bus = smbus.SMBus(1)
-                self.lcd_init()
+                self.lcd_write(0x33) # Initialize
+                self.lcd_write(0x32) # Set to 4-bit mode
+                self.lcd_write(0x28) # 2 line, 5x7 matrix
+                self.lcd_write(0x0C) # Display on, cursor off
+                self.lcd_write(0x06) # Increment cursor
+                self.lcd_write(0x01) # Clear display
+                time.sleep(0.005)
             except Exception as e:
-                print(f"Failed to initialize actual I2C LCD: {e}")
+                print(f"Failed to initialize actual I2C LCD: {e}. Using mock.")
                 self.mock = True
+                self.lcd = LCDMock()
         else:
             self.mock = True
             self.lcd = LCDMock()
 
-    def lcd_init(self):
-        # Implementation of 1602 LCD initialization commands over I2C
-        pass
+    def write_cmd(self, cmd):
+        self.bus.write_byte(self.address, cmd)
+
+    def lcd_write(self, cmd, mode=0):
+        # mode: 0 for command, 1 for data
+        backlight = 0x08  # 0x08 is Backlight ON, 0x00 is Backlight OFF
+        high_nibble = (cmd & 0xF0) | backlight | mode
+        low_nibble = ((cmd << 4) & 0xF0) | backlight | mode
+        
+        # Write high nibble
+        self.write_cmd(high_nibble | 0x04) # EN High
+        time.sleep(0.0005)
+        self.write_cmd(high_nibble & ~0x04) # EN Low
+        time.sleep(0.0001)
+        
+        # Write low nibble
+        self.write_cmd(low_nibble | 0x04) # EN High
+        time.sleep(0.0005)
+        self.write_cmd(low_nibble & ~0x04) # EN Low
+        time.sleep(0.0001)
 
     def lcd_display_string(self, string, line):
-        if not PI_HARDWARE_AVAILABLE:
+        if self.mock:
             self.lcd.lcd_display_string(string, line)
-        else:
-            # Shortened representation of actual LCD write
-            print(f"[LCD Actual] Line {line}: {string}")
+            return
+            
+        # Select LCD line position
+        if line == 1:
+            self.lcd_write(0x80)
+        elif line == 2:
+            self.lcd_write(0xC0)
+            
+        # Print string characters
+        for char in string[:16]:
+            self.lcd_write(ord(char), 1)
 
     def lcd_clear(self):
-        if not PI_HARDWARE_AVAILABLE:
+        if self.mock:
             self.lcd.lcd_clear()
+            return
+        self.lcd_write(0x01)
+        time.sleep(0.005)
 
 class HardwareController:
     def __init__(self):
