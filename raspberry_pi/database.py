@@ -18,7 +18,7 @@ def init_db():
     # Sensor data table (stores reading history)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sensor_logs (
-            id INTEGER PRIMARY KEY AUTOCTINCR,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             node_id INTEGER NOT NULL,
             packet_id INTEGER,
             timestamp REAL NOT NULL,

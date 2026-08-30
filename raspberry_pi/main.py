@@ -18,8 +18,28 @@ def run_hub():
     # 3. Initialize AI inference engine
     ai_engine = EdgeAIInference()
 
-    # 4. Initialize LoRa Serial Receiver
-    lora = LoRaReceiver(port="/dev/ttyAMA0") # Default RPi serial port
+    # 4. Initialize LoRa Serial Receiver (with auto-detection for Windows)
+    import sys
+    default_port = "/dev/ttyAMA0"
+    if sys.platform.startswith('win'):
+        try:
+            import serial.tools.list_ports
+            ports = list(serial.tools.list_ports.comports())
+            esp_ports = [p.device for p in ports if any(x in p.description for x in ["USB", "UART", "Silicon Labs", "CH340", "CP210"])]
+            if esp_ports:
+                default_port = esp_ports[0]
+                print(f"Auto-detected ESP32 LoRa Gateway on Windows port: {default_port}")
+            elif ports:
+                default_port = ports[0].device
+                print(f"Using first available serial port: {default_port}")
+            else:
+                default_port = "COM3"
+                print(f"No serial ports found. Defaulting to: {default_port}")
+        except Exception as e:
+            default_port = "COM3"
+            print(f"Error scanning serial ports: {e}. Defaulting to COM3")
+    
+    lora = LoRaReceiver(port=default_port)
 
     hardware.display_status("SIH Central Hub", "System: Active")
     time.sleep(2)
