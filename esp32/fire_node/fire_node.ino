@@ -25,7 +25,7 @@
 #define LORA_DIO0         2
 
 // --- Node Identifier ---
-const byte NODE_ID = 0x01;      // Configured as Node 1 (Fire/Gas Node)
+const byte NODE_ID = 0x02;      // Configured as Node 2 (Fire/Gas Node)
 
 // --- Threshold Definitions (From Specifications) ---
 // MQ-2 Smoke/Gas Analog Value
